@@ -96,5 +96,18 @@ public class Teams implements Comparable<Teams>{
     }
     return result;
   }
-   
+  
+  public float getExperienceAverage(){
+    float experiencedPlayers = getExperiencedPlayersCount();
+    return Math.round(experiencedPlayers / mPlayers.size() * 100);
+  }
+  
+  public long getExperiencedPlayersCount(){
+    List<Player> expPlayers = new ArrayList<>();
+    mPlayers.forEach(player -> {
+    if(player.isPreviousExperience())
+      expPlayers.add(player);
+    });    
+    return expPlayers.size();
+  }   
 }

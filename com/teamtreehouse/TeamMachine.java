@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.TreeMap;
 import java.util.Set;
 import java.util.TreeSet;
@@ -23,7 +24,9 @@ public class TeamMachine{
   private BufferedReader mReader;
   private Map<String, String> mMenu;
   private List<Player> mAvailablePlayers = new ArrayList<Player>();
+  private List<Player> mWaitingPlayers = new ArrayList<Player>();
   private int mMaxTeams;
+  private Random random = new Random();
   
   public TeamMachine(Player[] players){
     mPlayers = players;
@@ -35,11 +38,15 @@ public class TeamMachine{
     mReader = new BufferedReader(new InputStreamReader(System.in));
     mMenu = new HashMap<String, String>();
     mMenu.put("1", "Add a team to the season");
-    mMenu.put("2", "Add a remaining player to an existing team");
+    mMenu.put("2", "Add a player on the league roster to a team");
     mMenu.put("3", "Remove a player from a team");
     mMenu.put("4", "Get a team report");
     mMenu.put("5", "League Balance Report");
-    mMenu.put("6", "Finish Season/Exit Program");
+    mMenu.put("6", "Auto Build Teams with Players");
+    mMenu.put("7", "Remove player from league");
+    mMenu.put("8", "Move player from waiting list into league list");
+    mMenu.put("9", "Add player to waiting list");
+    mMenu.put("10", "Finish Season/Exit Program");
   }
     
   public void run(){
@@ -68,6 +75,30 @@ public class TeamMachine{
          leagueBalanceReport(); 
          break;
         case "6" :
+          if(mTeams.size() == mMaxTeams){
+            System.out.printf("No more teams are needed.%n");
+            break;
+          }
+          autoBuildTeams();
+          break;
+        case "7":
+           //remove player in league roster
+           removeFromLeague();
+           break;
+        case "8":
+            //Move player from waiting list to league list
+           if(mWaitingPlayers.size()==0){
+              System.out.printf("%nThere are no players in the waiting list.%n" + 
+                                "Add players to the waitng list first.");
+              break;
+           }
+          addToLeague();
+          break;
+        case "9":
+         //Add player to waiting list
+         addWaitingPlayer();
+         break;
+        case "10":
           break;
         default:
           System.out.printf("%nChoice not valid: '%s'. %n", choice);       
@@ -76,7 +107,7 @@ public class TeamMachine{
         System.out.printf("Choice not valid: '%s'. %n", choice);
         ioe.printStackTrace();
       }
-     }while(!choice.equals("6"));
+     }while(!choice.equals("10"));
      finalReport();
   }
   
@@ -200,6 +231,59 @@ public class TeamMachine{
     mAvailablePlayers.add(playerChoice);
   }
   
+  private void removeFromLeague() throws IOException{
+    String removeChoice = "";
+    String yes = "y";
+    String no = "n";
+    if(mAvailablePlayers.size() == 0){
+      System.out.printf("There are no players to remove.");
+      return;
+    }
+    Player removePlayerChoice = playerChoice(mAvailablePlayers);
+    System.out.printf("%nRemoving %s %s.%n", 
+                      removePlayerChoice.getFirstName(), 
+                      removePlayerChoice.getLastName());
+    mWaitingPlayers.add(removePlayerChoice);
+    mAvailablePlayers.remove(removePlayerChoice);
+
+  }
+  
+  private void addToLeague() throws IOException{
+    Player addPlayerChoice = playerChoice(mWaitingPlayers);
+    System.out.printf("%nMoving %s %s.%n", 
+                      addPlayerChoice.getFirstName(), 
+                      addPlayerChoice.getLastName());
+    mAvailablePlayers.add(addPlayerChoice);
+    mWaitingPlayers.remove(addPlayerChoice);
+  }
+  
+  private void addWaitingPlayer() throws IOException{
+    System.out.printf("Enter first name: ");
+    String firstName = mReader.readLine();
+    System.out.printf("Enter last name: ");
+    String lastName = mReader.readLine();
+    System.out.printf("Enter height(inches): ");
+    String heightAsString = mReader.readLine();
+    int heightAsInt = 0;
+    boolean isInteger = false;
+    while(isInteger == false){
+      try{
+          heightAsInt = Integer.parseInt(heightAsString.trim());
+          isInteger = true;
+        }catch(IllegalArgumentException iae){
+          System.out.printf("%s. Please enter a number for height.%n", 
+                            iae.getMessage());
+        }
+    }
+    System.out.printf("Is the player experienced? (y/n):");
+    String isExperienced = mReader.readLine().toLowerCase();
+    Player newPlayer = new Player(firstName, lastName, heightAsInt, isExperienced.equals("y"));
+    mAvailablePlayers.add(newPlayer);
+    System.out.printf("%nAdding %s %s.%n", 
+                      newPlayer.getFirstName(), 
+                      newPlayer.getLastName());
+  }
+  
   private void report() throws IOException{
     if(mTeams.size() == 0){
       System.out.printf("%nNo teams have been created yet.%n" + 
@@ -253,6 +337,7 @@ public class TeamMachine{
     for(Teams teams : mTeams){
       System.out.printf("%nTeam's Name: %s%nCoach's Name: %s%n",
                         teams.getTeamName(),
+                        teams.getTeamName(),
                         teams.getCoachName());
       for(Player player : teams.getPlayerList()){
         System.out.printf("  %s %s%n",
@@ -260,5 +345,69 @@ public class TeamMachine{
                           player.getLastName());
       }
     }
+  }
+  
+  private void autoBuildTeams() throws IOException{
+    String teamName = "Team 0";
+    String coachName = "Coach 0";
+    for(int i = 1; i<4; i++){
+      String tmpTeamName = teamName + Integer.toString(i);
+      String tmpCoachName = coachName + Integer.toString(i);
+      Teams teams = new Teams(tmpTeamName, tmpCoachName);
+      mTeams.add(teams);
+      System.out.printf("%s team added to league.%n", tmpTeamName);
+    }
+    
+    Collections.sort(mAvailablePlayers);
+    Collections.sort(mTeams);
+    List<Player> listPlayers = new ArrayList<>(mAvailablePlayers);
+    for(Teams teams : mTeams){
+      int max = Teams.MAX_PLAYERS - mTeams.size();
+      for(int p = 0; p < max; ){
+        boolean canAdd = false;
+        int playerIndex = new Random().nextInt(mAvailablePlayers.size());
+        Player randomPlayer = listPlayers.get(playerIndex);
+        //System.out.printf(randomPlayer.getFirstName());
+        if(experiencedPlayers(listPlayers)==0 || inexperiencedPlayers(listPlayers)==0){
+          canAdd = true;
+        }else if(experiencedPlayers(listPlayers)==0 || inexperiencedPlayers(listPlayers)==0){
+          canAdd = true;
+        }else if ((teams.getExperienceAverage() <= 50.0f && randomPlayer.isPreviousExperience()) || (teams.getExperienceAverage() > 50.0 && !randomPlayer.isPreviousExperience())) {
+                                  canAdd = true;
+        }else if ((new Random().nextInt(101)) >= 35) {
+                                  canAdd = true;
+        }
+        if (canAdd){          
+          teams.addPlayer(randomPlayer);
+          listPlayers.remove(randomPlayer);
+          mAvailablePlayers.remove(randomPlayer);
+//          System.out.printf("%n%s %s added to team %s.%n",
+//                      randomPlayer.getFirstName(), 
+//                      randomPlayer.getLastName(),
+//                      teams.getTeamName());
+          p++;          
+        }        
+       }
+    }
+  }
+                    
+  private static int experiencedPlayers(List<Player> players){
+    int count = 0;
+    for (Player player : players) {
+      if(player.isPreviousExperience()){
+        count++;
+      }
+    }    
+    return count;
+  }
+
+  private static int inexperiencedPlayers(List<Player> players){
+    int count = 0;
+      for (Player player : players) {
+      if(!player.isPreviousExperience()){
+        count++;
+      }
+    }    
+    return count;
   }
 }
