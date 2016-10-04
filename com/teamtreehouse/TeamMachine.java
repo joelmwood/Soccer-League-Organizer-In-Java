@@ -278,7 +278,7 @@ public class TeamMachine{
     System.out.printf("Is the player experienced? (y/n):");
     String isExperienced = mReader.readLine().toLowerCase();
     Player newPlayer = new Player(firstName, lastName, heightAsInt, isExperienced.equals("y"));
-    mAvailablePlayers.add(newPlayer);
+    mWaitingPlayers.add(newPlayer);
     System.out.printf("%nAdding %s %s.%n", 
                       newPlayer.getFirstName(), 
                       newPlayer.getLastName());
